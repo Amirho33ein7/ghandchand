@@ -8,6 +8,7 @@ import 'alert_page.dart';
 import 'navigation.dart';
 import 'database.dart';
 import 'models.dart';
+import 'meal_scheduler.dart';
 import 'notification_service.dart';
 import 'risk_engine.dart';
 
@@ -54,6 +55,8 @@ class _RootPageState extends State<RootPage> {
   List<ActivityEntry> activities = [];
   List<HypoglycemiaEvent> events = [];
   List<RiskWindow> windows = [];
+  List<MealPlanEntry> mealPlan = [];
+  String mealPlanNote = '';
   bool loading = true;
 
   @override
@@ -110,22 +113,44 @@ class _RootPageState extends State<RootPage> {
 
   Future<void> recalcAndSchedule() async {
     if (profile == null) return;
+
+    final day = DateTime.now();
     final result = RiskEngine.calculateDay(
-      day: DateTime.now(),
+      day: day,
       profile: profile!,
       readings: readings,
       meals: meals,
       activities: activities,
       events: events,
     );
+
+    final mealResult = MealScheduler.buildForDay(
+      day: day,
+      profile: profile!,
+      readings: readings,
+      events: events,
+    );
+    final mealEntries = MealScheduler.buildDays(
+      firstDay: day,
+      profile: profile!,
+      readings: readings,
+      events: events,
+      days: 3,
+    );
+
     if (mounted) {
-      setState(() => windows = result);
+      setState(() {
+        windows = result;
+        mealPlan = mealResult.entries;
+        mealPlanNote = mealResult.note;
+      });
     }
-    if (result.isEmpty) {
-      await NotificationService.instance.clearRiskWindowNotifications();
-    } else {
+
+    await NotificationService.instance.clearRiskWindowNotifications();
+    if (result.isNotEmpty) {
       await NotificationService.instance.scheduleToday(result);
     }
+    await NotificationService.instance.scheduleMealPlan(mealEntries);
   }
 
   Future<void> complete(UserProfile p) async {
@@ -177,12 +202,9 @@ class _RootPageState extends State<RootPage> {
   }
 
   Future<void> scheduleToday() async {
-    if (windows.isEmpty) {
-      snack('هنوز بازه‌ای با ریسک کافی برای هشدار وجود ندارد.');
-      return;
-    }
-    await NotificationService.instance.scheduleToday(windows);
-    snack('هشدارهای امروز زمان‌بندی شدند.');
+    if (profile == null) return;
+    await recalcAndSchedule();
+    snack('یادآوری وعده‌ها و هشدارهای محاسبه‌شده زمان‌بندی شدند.');
   }
 
   Future<void> exact() async {
@@ -225,6 +247,8 @@ class _RootPageState extends State<RootPage> {
       profile: profile!,
       readings: readings,
       windows: windows,
+      mealPlan: mealPlan,
+      mealPlanNote: mealPlanNote,
       addReading: addReading,
       addMeal: addMeal,
       addActivity: addActivity,
@@ -488,6 +512,8 @@ class HomePage extends StatelessWidget {
   final UserProfile profile;
   final List<GlucoseReading> readings;
   final List<RiskWindow> windows;
+  final List<MealPlanEntry> mealPlan;
+  final String mealPlanNote;
   final Future<void> Function() addReading;
   final Future<void> Function() addMeal;
   final Future<void> Function() addActivity;
@@ -501,6 +527,8 @@ class HomePage extends StatelessWidget {
     required this.profile,
     required this.readings,
     required this.windows,
+    required this.mealPlan,
+    required this.mealPlanNote,
     required this.addReading,
     required this.addMeal,
     required this.addActivity,
@@ -568,6 +596,44 @@ class HomePage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text(
+                  'برنامه وعده‌های امروز',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                if (mealPlan.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text('برنامه وعده‌ای ساخته نشده است.'),
+                  )
+                else
+                  ...mealPlan.map(
+                    (m) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.restaurant_outlined),
+                      title: Text(m.title),
+                      subtitle: Text(clock(m.time)),
+                      trailing: Text(m.mainMeal ? 'وعده اصلی' : 'میان‌وعده'),
+                    ),
+                  ),
+                if (mealPlanNote.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      mealPlanNote,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
                   'بازه‌های پرریسک امروز',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
@@ -623,7 +689,7 @@ class HomePage extends StatelessWidget {
         FilledButton.icon(
           onPressed: scheduleToday,
           icon: const Icon(Icons.notifications_active_outlined),
-          label: const Text('زمان‌بندی هشدارهای امروز'),
+          label: const Text('زمان‌بندی دوبارهٔ وعده‌ها و هشدارها'),
         ),
       ],
     );
