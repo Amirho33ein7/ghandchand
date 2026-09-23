@@ -217,7 +217,7 @@ class NotificationService {
 
   Future<void> clearMealNotifications() async {
     await init();
-    for (var i = 210000; i < 211000; i++) {
+    for (var i = 210000; i < 220000; i++) {
       await plugin.cancel(id: i);
     }
   }
@@ -231,7 +231,7 @@ class NotificationService {
 
   Future<void> scheduleMealPlan(List<MealPlanEntry> entries) async {
     await clearMealNotifications();
-    for (var i = 0; i < entries.length && i < 24; i++) {
+    for (var i = 0; i < entries.length && i < 56; i++) {
       await scheduleMeal(entries[i], index: i % 10);
     }
   }
