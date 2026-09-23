@@ -4,6 +4,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:share_plus/share_plus.dart';
+import 'alert_page.dart';
+import 'navigation.dart';
 import 'database.dart';
 import 'models.dart';
 import 'notification_service.dart';
@@ -57,7 +59,32 @@ class _RootPageState extends State<RootPage> {
   @override
   void initState() {
     super.initState();
+    notificationPayload.addListener(_handleNotificationPayload);
     load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _handleNotificationPayload());
+  }
+
+  @override
+  void dispose() {
+    notificationPayload.removeListener(_handleNotificationPayload);
+    super.dispose();
+  }
+
+  void _handleNotificationPayload() {
+    final payload = notificationPayload.value;
+    if (!mounted || payload == null || payload.isEmpty) return;
+    notificationPayload.value = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SafetyAlertPage(
+            payload: payload,
+            onRegisterGlucose: addReading,
+          ),
+        ),
+      );
+    });
   }
 
   Future<void> load() async {

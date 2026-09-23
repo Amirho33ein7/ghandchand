@@ -4,6 +4,7 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 import 'models.dart';
+import 'navigation.dart';
 import 'risk_engine.dart';
 
 class NotificationService {
@@ -24,6 +25,8 @@ class NotificationService {
       const InitializationSettings(
         android: AndroidInitializationSettings('@drawable/app_icon'),
       ),
+      onDidReceiveNotificationResponse: (response) =>
+          handleNotificationPayload(response.payload),
     );
 
     final android = plugin.resolvePlatformSpecificImplementation<
