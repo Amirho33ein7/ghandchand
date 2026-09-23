@@ -578,7 +578,7 @@ class HomePage extends StatelessWidget {
                             w.level.label +
                                 ' • امتیاز ' +
                                 w.score.toString() +
-                                ' • اطمینان ' +
+                                ' • پوشش شواهد ' +
                                 (w.confidence * 100).round().toString() +
                                 '%',
                           ),
