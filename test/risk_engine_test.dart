@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lowguard/models.dart';
-import 'package:lowguard.risk_engine.dart';
+import 'package:lowguard/risk_engine.dart';
 
 void main() {
   UserProfile baseProfile({bool history = false, bool night = false}) =>
