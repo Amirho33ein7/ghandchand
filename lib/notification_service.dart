@@ -193,6 +193,72 @@ class NotificationService {
     );
   }
 
+  int recurringMealNotificationId(int index) => 210000 + index;
+
+  DateTime _nextMealOccurrence(DateTime now, MealPlanEntry entry) {
+    var candidate = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      entry.time.hour,
+      entry.time.minute,
+    );
+    if (!candidate.isAfter(now)) {
+      candidate = candidate.add(const Duration(days: 1));
+    }
+    return candidate;
+  }
+
+  Future<void> scheduleRecurringMeal(
+    MealPlanEntry entry, {
+    required int index,
+  }) async {
+    await init();
+    final next = _nextMealOccurrence(DateTime.now(), entry);
+    final date = tz.TZDateTime.from(next, tz.local);
+    final mode = await canExact()
+        ? AndroidScheduleMode.exactAllowWhileIdle
+        : AndroidScheduleMode.inexactAllowWhileIdle;
+
+    await plugin.zonedSchedule(
+      id: recurringMealNotificationId(index),
+      title: '🍽️ زمان ' + entry.title,
+      body:
+          'الان زمان وعده برنامه‌ریزی‌شده است. مقدار و نوع غذا را طبق برنامه شخصی یا درمانی خود تعیین کنید.',
+      scheduledDate: date,
+      notificationDetails: mealDetails(),
+      androidScheduleMode: mode,
+      payload: 'meal:' + entry.title,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+
+  Future<void> scheduleDailyMealPlan(List<MealPlanEntry> entries) async {
+    await clearMealNotifications();
+    final count = entries.length.clamp(0, 6).toInt();
+    for (var i = 0; i < count; i++) {
+      await scheduleRecurringMeal(entries[i], index: i);
+    }
+  }
+
+  Future<void> scheduleTestNotification() async {
+    await init();
+    final now = DateTime.now().add(const Duration(seconds: 10));
+    final date = tz.TZDateTime.from(now, tz.local);
+    final mode = await canExact()
+        ? AndroidScheduleMode.exactAllowWhileIdle
+        : AndroidScheduleMode.inexactAllowWhileIdle;
+
+    await plugin.zonedSchedule(
+      id: 299999,
+      title: '✅ تست اعلان نگهبان قند',
+      body: 'اگر این پیام را می‌بینید، اعلان‌های برنامه فعال و قابل دریافت هستند.',
+      scheduledDate: date,
+      notificationDetails: mealDetails(),
+      androidScheduleMode: mode,
+      payload: 'test_notification',
+    );
+  }
   Future<void> showLow(double mgDl) async {
     await init();
     final severe = mgDl < RiskEngine.level2;
@@ -230,10 +296,7 @@ class NotificationService {
   }
 
   Future<void> scheduleMealPlan(List<MealPlanEntry> entries) async {
-    await clearMealNotifications();
-    for (var i = 0; i < entries.length && i < 56; i++) {
-      await scheduleMeal(entries[i], index: i % 10);
-    }
+    await scheduleDailyMealPlan(entries);
   }
 
   Future<void> scheduleDayPlan({
@@ -241,6 +304,6 @@ class NotificationService {
     required List<MealPlanEntry> meals,
   }) async {
     await scheduleToday(windows);
-    await scheduleMealPlan(meals);
+    await scheduleDailyMealPlan(meals);
   }
 }
