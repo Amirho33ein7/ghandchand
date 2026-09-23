@@ -47,7 +47,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
     night = p.nighttimeHypo;
     insulin = p.usesInsulin;
     meds = p.usesGlucoseLoweringMedication;
-    meals = p.mealsPerDay.clamp(1, 6);
+    meals = p.mealsPerDay.clamp(1, 6).toInt();
   }
 
   @override
