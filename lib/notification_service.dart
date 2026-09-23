@@ -36,8 +36,41 @@ class NotificationService {
 
     final android = plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
+
+    await android?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        channelId,
+        'هشدارهای نگهبان قند',
+        description: 'هشدارهای مهم پایش قند خون',
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+      ),
+    );
+
     await android?.requestNotificationsPermission();
     _ready = true;
+  }
+
+  Future<bool> notificationsEnabled() async {
+    await init();
+    final android = plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    return await android?.areNotificationsEnabled() ?? false;
+  }
+
+  Future<bool?> requestNotificationPermission() async {
+    await init();
+    final android = plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    return android?.requestNotificationsPermission();
+  }
+
+  Future<void> openNotificationSettings() async {
+    await init();
+    final android = plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    await android?.openAppNotificationSettings();
   }
 
   Future<bool> exactPermission() async {

@@ -722,6 +722,31 @@ class HomePage extends StatelessWidget {
   Widget settings(BuildContext context) => ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          FutureBuilder<bool>(
+            future: NotificationService.instance.notificationsEnabled(),
+            builder: (context, snapshot) {
+              final enabled = snapshot.data ?? true;
+              return ListTile(
+                leading: Icon(
+                  enabled
+                      ? Icons.notifications_active_outlined
+                      : Icons.notifications_off_outlined,
+                ),
+                title: const Text('اجازه اعلان‌ها'),
+                subtitle: Text(
+                  enabled
+                      ? 'اعلان‌های LowGuard فعال است.'
+                      : 'اجازه اعلان‌ها خاموش است؛ برای دریافت هشدار فعالش کنید.',
+                ),
+                onTap: () async {
+                  final granted = await NotificationService.instance.requestNotificationPermission();
+                  if (!(granted ?? false)) {
+                    await NotificationService.instance.openNotificationSettings();
+                  }
+                },
+              );
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.alarm),
             title: const Text('مجوز زمان‌بندی دقیق'),
