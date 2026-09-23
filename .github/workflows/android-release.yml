@@ -37,13 +37,13 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0
-          name: LowGuard v1.0.0
+          tag_name: v1.1.${{ github.event.workflow_run.run_number }}
+          name: LowGuard v1.1.${{ github.event.workflow_run.run_number }}
           draft: false
           prerelease: false
           generate_release_notes: false
           body: |
-            # LowGuard v1.0.0 — نگهبان قند
+            # LowGuard v1.1 — نگهبان قند
 
             This release was published only after the Android Build workflow completed successfully.
 
@@ -63,7 +63,7 @@ jobs:
             - A low-glucose alert based on a measured value is distinct from a predicted risk reminder.
 
             Signing:
-            - v1.0.0 APKs are debug-signed for installation/testing.
+            - APKs are debug-signed for installation/testing.
             - A store-production release requires a private production keystore.
           files: |
             dist/flutter-apk/app-release.apk
