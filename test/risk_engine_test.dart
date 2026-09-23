@@ -43,7 +43,11 @@ void main() {
     );
 
     expect(windows, isNotEmpty);
-    expect(windows.any((w) => w.start.hour == 3 || w.end.hour == 3), isTrue);
+    final observed = DateTime(2026, 9, 23, 3, 10);
+    expect(
+      windows.any((w) => !observed.isBefore(w.start) && observed.isBefore(w.end)),
+      isTrue,
+    );
   });
 
   test('stale low older than 30 days is ignored', () {
