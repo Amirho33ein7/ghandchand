@@ -11,7 +11,7 @@ void main() {
     expect(MedicalReference.fastingDiabetesMin, 126);
   });
 
-  test('recurring notification uses tomorrow after today's time has passed', () {
+  test('recurring notification uses tomorrow after today time has passed', () {
     final entry = MealPlanEntry(
       time: DateTime(2026, 9, 23, 9, 30),
       title: 'صبحانه',
