@@ -69,6 +69,12 @@ class NotificationService {
         ),
       );
 
+  int riskNotificationId(RiskWindow w) {
+    final dayStart = DateTime(w.start.year, w.start.month, w.start.day);
+    final halfHour = w.start.difference(dayStart).inMinutes ~/ 30;
+    return 100000 + halfHour;
+  }
+
   Future<void> schedule(RiskWindow w) async {
     await init();
     final date = tz.TZDateTime.from(w.start, tz.local);
@@ -79,7 +85,7 @@ class NotificationService {
         : AndroidScheduleMode.inexactAllowWhileIdle;
 
     await plugin.zonedSchedule(
-      id: w.start.millisecondsSinceEpoch.remainder(2147483647),
+      id: riskNotificationId(w),
       title: w.level.index >= RiskLevel.high.index ? '⚠️ زمان بررسی قند خون' : 'یادآوری بررسی قند خون',
       body: 'بر اساس داده‌های ثبت‌شده، ریسک افت قند در این بازه بیشتر برآورد شده است. در صورت امکان قند خون خود را بررسی کنید.',
       scheduledDate: date,
@@ -103,7 +109,15 @@ class NotificationService {
     );
   }
 
+  Future<void> clearRiskWindowNotifications() async {
+    await init();
+    for (var i = 0; i < 48; i++) {
+      await plugin.cancel(100000 + i);
+    }
+  }
+
   Future<void> scheduleToday(List<RiskWindow> windows) async {
+    await clearRiskWindowNotifications();
     for (final w in windows.take(6)) {
       await schedule(w);
     }

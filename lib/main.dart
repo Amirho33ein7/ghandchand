@@ -103,7 +103,9 @@ class _RootPageState extends State<RootPage> {
       events = h;
       loading = false;
     });
-    if (p != null) recalc();
+    if (p != null) {
+      await recalcAndSchedule();
+    }
   }
 
   void recalc() {
