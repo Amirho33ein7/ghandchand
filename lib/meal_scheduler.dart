@@ -65,7 +65,7 @@ class MealScheduler {
         hasRecentLow ||
         lowBaseline;
 
-    var count = profile.mealsPerDay.clamp(1, 6);
+    var count = profile.mealsPerDay.clamp(1, 6).toInt();
     final awakeMinutes = sleep.difference(wake).inMinutes;
 
     if (cautious && count < 4 && awakeMinutes >= 12 * 60) {
