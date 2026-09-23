@@ -270,6 +270,7 @@ class _RootPageState extends State<RootPage> {
       exact: exact,
       exportData: exportData,
       editProfile: editProfile,
+      testNotification: testNotification,
     );
   }
 }
@@ -536,6 +537,7 @@ class HomePage extends StatelessWidget {
   final Future<void> Function() exact;
   final Future<void> Function() exportData;
   final Future<void> Function() editProfile;
+  final Future<void> Function() testNotification;
 
   const HomePage({
     super.key,
@@ -552,6 +554,7 @@ class HomePage extends StatelessWidget {
     required this.exact,
     required this.exportData,
     required this.editProfile,
+    required this.testNotification,
   });
 
   @override
@@ -779,7 +782,7 @@ class HomePage extends StatelessWidget {
 
   Widget safety(BuildContext context) => ListView(
         padding: const EdgeInsets.all(16),
-        children: const [
+        children: [
           _SafetyCard(
             title: 'افت قند سطح ۱',
             text: 'کمتر از 70 و حداقل 54 mg/dL.',
