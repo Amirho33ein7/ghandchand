@@ -18,7 +18,7 @@ Android Gradle Plugin: 9.1.0
 Gradle: 9.3.1
 Java: 17
 
-نسخه اولیه local-first است. داده واقعی سلامت، Secret، Token، API Key و Keystore نباید در Repository قرار گیرند.
+نسخه local-first است و برنامهٔ وعده‌ها به‌صورت روزانه و تکرارشونده فعال می‌ماند تا کاربر اطلاعات پایه را ویرایش کند. تنظیم مجدد اطلاعات باعث حذف زمان‌بندی قبلی و ایجاد برنامه جدید می‌شود. داده واقعی سلامت، Secret، Token، API Key و Keystore نباید در Repository قرار گیرند.
 
 Build محلی:
 flutter pub get
@@ -26,3 +26,9 @@ flutter analyze
 flutter test
 flutter build apk
 flutter build appbundle
+
+
+مرجع‌های پزشکی در نسخه 1.2:
+- ADA Standards of Care in Diabetes 2026 — تشخیص دیابت و طبقه‌بندی هیپوگلیسمی
+- World Health Organization — معیارهای تشخیصی دیابت
+- برنامه از این مراجع برای آستانه‌های ایمنی و نمایش هشدار استفاده می‌کند؛ زمان وعده‌ها یک برنامه یادآوری شخصی است و جایگزین دستور درمانی پزشک نیست.
