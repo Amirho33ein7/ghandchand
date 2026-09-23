@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lowguard/medical_reference.dart';
 import 'package:lowguard/notification_planner.dart';
 import 'package:lowguard/meal_scheduler.dart';
-import 'package:lowguard/models.dart';
 
 void main() {
   test('medical hypoglycemia thresholds match centralized references', () {
