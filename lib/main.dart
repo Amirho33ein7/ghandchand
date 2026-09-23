@@ -9,6 +9,7 @@ import 'navigation.dart';
 import 'database.dart';
 import 'models.dart';
 import 'meal_scheduler.dart';
+import 'medical_reference.dart';
 import 'profile_edit_page.dart';
 import 'notification_service.dart';
 import 'risk_engine.dart';
@@ -131,13 +132,7 @@ class _RootPageState extends State<RootPage> {
       readings: readings,
       events: events,
     );
-    final mealEntries = MealScheduler.buildDays(
-      firstDay: day,
-      profile: profile!,
-      readings: readings,
-      events: events,
-      days: 7,
-    );
+    final mealEntries = mealResult.entries;
 
     if (mounted) {
       setState(() {
@@ -169,6 +164,11 @@ class _RootPageState extends State<RootPage> {
         ),
       ),
     );
+  }
+
+  Future<void> testNotification() async {
+    await NotificationService.instance.scheduleTestNotification();
+    snack('یک اعلان تستی برای حدود ۱۰ ثانیه بعد زمان‌بندی شد.');
   }
 
   Future<void> addReading() async {
@@ -794,6 +794,10 @@ class HomePage extends StatelessWidget {
                 'رخداد شدید که برای درمان به کمک فرد دیگر نیاز دارد، مستقل از عدد قند.',
           ),
           _SafetyCard(
+            title: 'مرجع‌های پزشکی برنامه ' + MedicalReference.version,
+            text: MedicalReference.sources.join('\n'),
+          ),
+          _SafetyCard(
             title: 'قاعده 15-15',
             text:
                 'برای بسیاری از افراد: 15 گرم کربوهیدرات سریع‌الاثر و بررسی مجدد بعد از 15 دقیقه؛ برنامه درمانی پزشک مقدم است.',
@@ -834,6 +838,12 @@ class HomePage extends StatelessWidget {
             title: const Text('ویرایش اطلاعات پایه و آزمایش جدید'),
             subtitle: const Text('قند ناشتا، غیرناشتا، خواب، بیداری و تعداد وعده‌ها'),
             onTap: editProfile,
+          ),
+          ListTile(
+            leading: const Icon(Icons.notifications_active_outlined),
+            title: const Text('تست اعلان'),
+            subtitle: const Text('اعلان زمان‌بندی‌شده برای حدود ۱۰ ثانیه بعد'),
+            onTap: testNotification,
           ),
           ListTile(
             leading: const Icon(Icons.alarm),
