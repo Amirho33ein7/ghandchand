@@ -234,19 +234,12 @@ class NotificationService {
 
   Future<void> scheduleTestNotification() async {
     await init();
-    final now = DateTime.now().add(const Duration(seconds: 10));
-    final date = tz.TZDateTime.from(now, tz.local);
-    final mode = await canExact()
-        ? AndroidScheduleMode.exactAllowWhileIdle
-        : AndroidScheduleMode.inexactAllowWhileIdle;
-
-    await plugin.zonedSchedule(
+    await plugin.cancel(id: 299999);
+    await plugin.show(
       id: 299999,
       title: '✅ تست اعلان نگهبان قند',
       body: 'اگر این پیام را می‌بینید، اعلان‌های برنامه فعال و قابل دریافت هستند.',
-      scheduledDate: date,
       notificationDetails: mealDetails(),
-      androidScheduleMode: mode,
       payload: 'test_notification',
     );
   }
