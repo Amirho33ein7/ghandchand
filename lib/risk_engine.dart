@@ -1,9 +1,10 @@
 import 'dart:math' as math;
 import 'models.dart';
+import 'medical_reference.dart';
 
 class RiskEngine {
-  static const level1 = 70.0;
-  static const level2 = 54.0;
+  static const level1 = MedicalReference.hypoLevel1;
+  static const level2 = MedicalReference.hypoLevel2;
 
   static RiskLevel classify(num score) => score >= 80
       ? RiskLevel.veryHigh
