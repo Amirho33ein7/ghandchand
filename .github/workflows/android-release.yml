@@ -1,0 +1,71 @@
+name: Android Release
+
+on:
+  workflow_run:
+    workflows: ["Android Build"]
+    types: [completed]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_sha == 'bfa14ecd01bc7fe2c63c837a9dd49795266ea36d'
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Download Android build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: lowguard-android-build
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: dist
+
+      - name: Verify release files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f dist/app-release.apk
+          test -f dist/app-debug.apk
+          test -f dist/app-release.aab
+          ls -lh dist/
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: LowGuard v1.0.0
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          body: |
+            # LowGuard v1.0.0 — نگهبان قند
+
+            This release was published only after the Android Build workflow completed successfully.
+
+            Files:
+            - app-release.apk
+            - app-debug.apk
+            - app-release.aab
+
+            Notification behavior:
+            - Android 13+ requests the system notification permission.
+            - Notification access can also be managed from the app's Settings screen.
+            - Exact alarms use the Android permission flow when required.
+
+            Medical safety:
+            - Personal risk windows are non-diagnostic estimates.
+            - The app does not prescribe food quantities or medication/insulin dose changes.
+            - A low-glucose alert based on a measured value is distinct from a predicted risk reminder.
+
+            Signing:
+            - v1.0.0 APKs are debug-signed for installation/testing.
+            - A store-production release requires a private production keystore.
+          files: |
+            dist/app-release.apk
+            dist/app-debug.apk
+            dist/app-release.aab
