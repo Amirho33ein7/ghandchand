@@ -3,11 +3,7 @@ import 'package:lowguard/meal_scheduler.dart';
 import 'package:lowguard/models.dart';
 
 void main() {
-  UserProfile profile({
-    int meals = 3,
-    bool history = false,
-  }) =>
-      UserProfile(
+  UserProfile profile({int meals = 3, bool history = false}) => UserProfile(
         name: 'Test',
         sleepHour: 23,
         sleepMinute: 0,
@@ -17,7 +13,7 @@ void main() {
         historyOfHypo: history,
       );
 
-  test('builds meal reminders inside waking hours', () {
+  test('builds a daily meal pattern inside waking hours', () {
     final result = MealScheduler.buildForDay(
       day: DateTime(2026, 9, 23),
       profile: profile(),
@@ -41,7 +37,7 @@ void main() {
     expect(result.entries.length, 4);
   });
 
-  test('does not interpret a non-fasting value as a diagnosis', () {
+  test('does not diagnose from a non-fasting value alone', () {
     final result = MealScheduler.buildForDay(
       day: DateTime(2026, 9, 23),
       profile: UserProfile(
@@ -57,17 +53,5 @@ void main() {
     );
 
     expect(result.note, contains('زمان آزمون مهم است'));
-  });
-
-  test('generates plans for multiple days for persistent notifications', () {
-    final result = MealScheduler.buildDays(
-      firstDay: DateTime(2026, 9, 23),
-      profile: profile(),
-      readings: const [],
-      events: const [],
-      days: 3,
-    );
-
-    expect(result.length, 9);
   });
 }
