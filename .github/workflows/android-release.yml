@@ -17,10 +17,10 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Download Android build artifact
+      - name: Download Android release APK
         uses: actions/download-artifact@v4
         with:
-          name: lowguard-android-build
+          name: ghandchand-release-apk
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: dist
@@ -29,16 +29,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f dist/flutter-apk/app-release.apk
-          test -f dist/flutter-apk/app-debug.apk
-          test -f dist/bundle/release/app-release.aab
+          test -f dist/app-release.apk
           ls -lh dist/
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.1.${{ github.event.workflow_run.run_number }}
-          name: LowGuard v1.1.${{ github.event.workflow_run.run_number }}
+          name: GhandChand v1.1.${{ github.event.workflow_run.run_number }}
           draft: false
           prerelease: false
           generate_release_notes: false
@@ -66,6 +64,4 @@ jobs:
             - APKs are debug-signed for installation/testing.
             - A store-production release requires a private production keystore.
           files: |
-            dist/flutter-apk/app-release.apk
-            dist/flutter-apk/app-debug.apk
-            dist/bundle/release/app-release.aab
+            dist/app-release.apk
