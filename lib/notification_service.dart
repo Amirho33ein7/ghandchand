@@ -5,6 +5,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import 'models.dart';
 import 'navigation.dart';
+import 'meal_scheduler.dart';
 import 'risk_engine.dart';
 
 class NotificationService {
@@ -14,6 +15,7 @@ class NotificationService {
   bool _ready = false;
 
   static const channelId = 'low_guard_alerts';
+  static const mealChannelId = 'low_guard_meals';
 
   Future<void> init() async {
     if (_ready) return;
@@ -41,7 +43,18 @@ class NotificationService {
       const AndroidNotificationChannel(
         channelId,
         'هشدارهای نگهبان قند',
-        description: 'هشدارهای مهم پایش قند خون',
+        description: 'هشدارهای پایش و افت قند خون',
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+      ),
+    );
+
+    await android?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        mealChannelId,
+        'یادآوری وعده‌های غذایی',
+        description: 'یادآوری زمان وعده‌های محاسبه‌شده توسط برنامه',
         importance: Importance.high,
         playSound: true,
         enableVibration: true,
@@ -91,8 +104,10 @@ class NotificationService {
         android: AndroidNotificationDetails(
           channelId,
           'هشدارهای نگهبان قند',
-          channelDescription: 'هشدارهای مهم پایش قند خون',
-          importance: level.index >= RiskLevel.high.index ? Importance.max : Importance.high,
+          channelDescription: 'هشدارهای پایش و افت قند خون',
+          importance: level.index >= RiskLevel.high.index
+              ? Importance.max
+              : Importance.high,
           priority: Priority.high,
           playSound: true,
           enableVibration: true,
@@ -102,10 +117,33 @@ class NotificationService {
         ),
       );
 
+  NotificationDetails mealDetails() => const NotificationDetails(
+        android: AndroidNotificationDetails(
+          mealChannelId,
+          'یادآوری وعده‌های غذایی',
+          channelDescription: 'یادآوری زمان وعده‌های محاسبه‌شده توسط برنامه',
+          importance: Importance.high,
+          priority: Priority.high,
+          playSound: true,
+          enableVibration: true,
+          visibility: NotificationVisibility.public,
+          autoCancel: true,
+        ),
+      );
+
   int riskNotificationId(RiskWindow w) {
     final dayStart = DateTime(w.start.year, w.start.month, w.start.day);
     final halfHour = w.start.difference(dayStart).inMinutes ~/ 30;
     return 100000 + halfHour;
+  }
+
+  int mealNotificationId(MealPlanEntry entry, int index) {
+    final serial = DateTime.utc(
+      entry.time.year,
+      entry.time.month,
+      entry.time.day,
+    ).difference(DateTime.utc(2020, 1, 1)).inDays;
+    return 210000 + (serial * 10) + index;
   }
 
   Future<void> schedule(RiskWindow w) async {
@@ -119,12 +157,39 @@ class NotificationService {
 
     await plugin.zonedSchedule(
       id: riskNotificationId(w),
-      title: w.level.index >= RiskLevel.high.index ? '⚠️ زمان بررسی قند خون' : 'یادآوری بررسی قند خون',
-      body: 'بر اساس داده‌های ثبت‌شده، ریسک افت قند در این بازه بیشتر برآورد شده است. در صورت امکان قند خون خود را بررسی کنید.',
+      title: w.level.index >= RiskLevel.high.index
+          ? '⚠️ زمان بررسی قند خون'
+          : 'یادآوری بررسی قند خون',
+      body:
+          'بر اساس داده‌های ثبت‌شده، ریسک افت قند در این بازه بیشتر برآورد شده است. در صورت امکان قند خون خود را بررسی کنید.',
       scheduledDate: date,
       notificationDetails: details(w.level),
       androidScheduleMode: mode,
       payload: 'risk:' + w.start.toIso8601String(),
+    );
+  }
+
+  Future<void> scheduleMeal(
+    MealPlanEntry entry, {
+    required int index,
+  }) async {
+    await init();
+    final date = tz.TZDateTime.from(entry.time, tz.local);
+    if (!date.isAfter(tz.TZDateTime.now(tz.local))) return;
+
+    final mode = await canExact()
+        ? AndroidScheduleMode.exactAllowWhileIdle
+        : AndroidScheduleMode.inexactAllowWhileIdle;
+
+    await plugin.zonedSchedule(
+      id: mealNotificationId(entry, index),
+      title: '🍽️ زمان ' + entry.title,
+      body:
+          'الان زمان وعده برنامه‌ریزی‌شده است. اگر قندتان پایین است، طبق برنامه درمانی خود اقدام کنید.',
+      scheduledDate: date,
+      notificationDetails: mealDetails(),
+      androidScheduleMode: mode,
+      payload: 'meal:' + entry.title,
     );
   }
 
@@ -137,7 +202,8 @@ class NotificationService {
       body: severe
           ? 'کمتر از 54 mg/dL ثبت شده است. طبق برنامه درمانی خود اقدام کنید و اگر فرد هوشیار نیست یا نمی‌تواند ایمن چیزی مصرف کند، کمک فوری بگیرید.'
           : 'کمتر از 70 mg/dL ثبت شده است. طبق برنامه درمانی خود اقدام کنید و دوباره قند را بررسی کنید.',
-      notificationDetails: details(severe ? RiskLevel.veryHigh : RiskLevel.high),
+      notificationDetails:
+          details(severe ? RiskLevel.veryHigh : RiskLevel.high),
       payload: 'measured_low:' + mgDl.toString(),
     );
   }
@@ -149,10 +215,32 @@ class NotificationService {
     }
   }
 
+  Future<void> clearMealNotifications() async {
+    await init();
+    for (var i = 210000; i < 211000; i++) {
+      await plugin.cancel(id: i);
+    }
+  }
+
   Future<void> scheduleToday(List<RiskWindow> windows) async {
     await clearRiskWindowNotifications();
     for (final w in windows.take(6)) {
       await schedule(w);
     }
+  }
+
+  Future<void> scheduleMealPlan(List<MealPlanEntry> entries) async {
+    await clearMealNotifications();
+    for (var i = 0; i < entries.length && i < 24; i++) {
+      await scheduleMeal(entries[i], index: i % 10);
+    }
+  }
+
+  Future<void> scheduleDayPlan({
+    required List<RiskWindow> windows,
+    required List<MealPlanEntry> meals,
+  }) async {
+    await scheduleToday(windows);
+    await scheduleMealPlan(meals);
   }
 }
