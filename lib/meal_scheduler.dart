@@ -1,4 +1,5 @@
 import 'models.dart';
+import 'medical_reference.dart';
 
 class MealPlanEntry {
   final DateTime time;
@@ -140,10 +141,10 @@ class MealScheduler {
     if (nonFasting != null && nonFasting < RiskThresholds.level1) {
       warnings.add('قند غیرناشتا زیر 70 ثبت شده؛ برای افت قند طبق برنامه درمانی اقدام کنید.');
     }
-    if (fasting != null && fasting >= 126) {
+    if (fasting != null && fasting >= MedicalReference.fastingDiabetesMin) {
       warnings.add('قند ناشتا 126 یا بالاتر ثبت شده؛ این عدد برای تشخیص باید در چارچوب آزمایش و ارزیابی پزشکی تفسیر شود.');
     }
-    if (nonFasting != null && nonFasting >= 200) {
+    if (nonFasting != null && nonFasting >= MedicalReference.randomDiabetesMin) {
       warnings.add('قند غیرناشتا 200 یا بالاتر ثبت شده؛ زمان آزمون مهم است و این عدد را اپ به‌تنهایی تشخیص نمی‌دهد.');
     }
 
@@ -155,30 +156,9 @@ class MealScheduler {
     );
   }
 
-  static List<MealPlanEntry> buildDays({
-    required DateTime firstDay,
-    required UserProfile profile,
-    required List<GlucoseReading> readings,
-    required List<HypoglycemiaEvent> events,
-    int days = 3,
-  }) {
-    final output = <MealPlanEntry>[];
-    for (var i = 0; i < days; i++) {
-      final day = DateTime(firstDay.year, firstDay.month, firstDay.day + i);
-      output.addAll(
-        buildForDay(
-          day: day,
-          profile: profile,
-          readings: readings,
-          events: events,
-        ).entries,
-      );
-    }
-    return output;
-  }
 }
 
 class RiskThresholds {
-  static const double level1 = 70;
-  static const double level2 = 54;
+  static const double level1 = MedicalReference.hypoLevel1;
+  static const double level2 = MedicalReference.hypoLevel2;
 }
