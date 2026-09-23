@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -71,45 +71,3 @@ jobs:
             build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
-
-  release:
-    if: github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release: v')
-    needs: build
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: lowguard-android-build
-          path: dist
-
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.0.0
-          name: LowGuard v1.0.0
-          generate_release_notes: false
-          body: |
-            # LowGuard v1.0.0 — نگهبان قند
-
-            Android release built by GitHub Actions.
-
-            Includes:
-            - Debug APK
-            - Release APK
-            - Release AAB
-
-            Medical disclaimer:
-            This app is a local-first support tool for logging glucose and related events, estimating personal risk windows, and reminders. It is not a diagnostic or treatment system.
-
-            Notifications:
-            Android 13+ requests the system notification permission. Users can manage notification access from the app settings screen.
-
-            Release signing:
-            The initial CI APK is debug-signed for installation/testing. A production-store release requires a private release keystore.
-          files: |
-            dist/app-release.apk
-            dist/app-debug.apk
-            dist/app-release.aab
