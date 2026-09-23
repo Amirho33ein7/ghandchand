@@ -41,32 +41,12 @@ jobs:
       - name: Test
         run: flutter test
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "9.3.1"
-
-      - name: Write Flutter SDK path
-        run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
-
-      - name: Build Debug APK
-        working-directory: android
-        run: gradle :app:assembleDebug --stacktrace
-
       - name: Build Release APK
-        working-directory: android
-        run: gradle :app:assembleRelease --stacktrace
+        run: flutter build apk --release
 
-      - name: Build Release AAB
-        working-directory: android
-        run: gradle :app:bundleRelease --stacktrace
-
-      - name: Upload Android artifacts
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: lowguard-android-build
-          path: |
-            build/app/outputs/flutter-apk/app-debug.apk
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/bundle/release/app-release.aab
+          name: ghandchand-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
