@@ -13,13 +13,11 @@ class RiskEngine {
               ? RiskLevel.medium
               : RiskLevel.low;
 
-  static String glucoseBand(double mgDl) => mgDl < level2
-      ? 'افت قند سطح ۲'
-      : mgDl < level1
-          ? 'افت قند سطح ۱'
-          : mgDl <= 180
-              ? 'محدوده هدف عمومی'
-              : 'بالاتر از محدوده هدف عمومی';
+  static String glucoseBand(double mgDl) {
+    if (mgDl < level2) return 'افت قند سطح ۲';
+    if (mgDl < level1) return 'افت قند سطح ۱';
+    return 'بالاتر از آستانه افت قند';
+  }
 
   static double _clockDistance(int a, int b) {
     final d = (a - b).abs();
@@ -32,6 +30,29 @@ class RiskEngine {
     if (s == w) return true;
     if (s < w) return minute >= s && minute < w;
     return minute >= s || minute < w;
+  }
+
+  static double _ageWeight(DateTime target, DateTime observed) {
+    final hours = target.difference(observed).inHours;
+    if (hours < 0) return 0;
+    final days = hours / 24.0;
+    if (days > 30) return 0;
+    if (days <= 7) return 1.0;
+    if (days <= 14) return 0.75;
+    return 0.5;
+  }
+
+  static DateTime? _latestMealBefore(
+    DateTime target,
+    List<MealEntry> meals,
+  ) {
+    final candidates = meals.where((m) {
+      final diff = target.difference(m.time);
+      return !diff.isNegative && diff <= const Duration(hours: 24);
+    }).toList();
+    if (candidates.isEmpty) return null;
+    candidates.sort((a, b) => b.time.compareTo(a.time));
+    return candidates.first.time;
   }
 
   static List<RiskWindow> calculateDay({
@@ -53,54 +74,68 @@ class RiskEngine {
       final reasons = <String>[];
 
       for (final r in readings) {
-        if (_clockDistance(minute, r.time.hour * 60 + r.time.minute) <= 60) {
+        final weight = _ageWeight(start, r.time);
+        if (weight == 0 ||
+            _clockDistance(minute, r.time.hour * 60 + r.time.minute) > 60) {
+          continue;
+        }
+
+        if (r.mgDl < level2) {
+          score += (45 * weight).round();
+          reasons.add('سابقه قند کمتر از 54');
+          evidence += 2;
+        } else if (r.mgDl < level1) {
+          score += (30 * weight).round();
+          reasons.add('سابقه قند کمتر از 70');
+          evidence += 2;
+        } else if (r.mgDl < 80) {
+          score += (8 * weight).round();
+          reasons.add('اندازه‌گیری نزدیک به محدوده پایین');
           evidence++;
-          if (r.mgDl < level2) {
-            score += 45;
-            reasons.add('سابقه قند کمتر از 54');
-          } else if (r.mgDl < level1) {
-            score += 30;
-            reasons.add('سابقه قند کمتر از 70');
-          } else if (r.mgDl < 80) {
-            score += 8;
-            reasons.add('اندازه‌گیری نزدیک به محدوده پایین');
-          }
         }
       }
 
       for (final e in events) {
-        if (_clockDistance(minute, e.time.hour * 60 + e.time.minute) <= 90) {
-          score += e.measuredMgDl != null && e.measuredMgDl! < level2 ? 40 : 28;
-          evidence += 2;
-          reasons.add('سابقه افت قند ثبت‌شده در این ساعت');
+        final weight = _ageWeight(start, e.time);
+        if (weight == 0 ||
+            _clockDistance(minute, e.time.hour * 60 + e.time.minute) > 90) {
+          continue;
         }
+
+        score += ((e.measuredMgDl != null &&
+                    e.measuredMgDl! < level2
+                ? 40
+                : 28) *
+            weight).round();
+        evidence += 2;
+        reasons.add('سابقه افت قند ثبت‌شده در این ساعت');
       }
 
-      if (meals.isNotEmpty) {
-        final gap = meals.map((m) => _clockDistance(
-              minute,
-              m.time.hour * 60 + m.time.minute,
-            )).reduce(math.min);
-        if (gap >= 300) {
+      final latestMeal = _latestMealBefore(start, meals);
+      if (latestMeal != null) {
+        final mealGap = start.difference(latestMeal).inMinutes;
+        if (mealGap >= 300) {
           score += 16;
           evidence++;
-          reasons.add('فاصله طولانی از وعده ثبت‌شده');
-        } else if (gap >= 240) {
+          reasons.add('فاصله طولانی از آخرین وعده ثبت‌شده');
+        } else if (mealGap >= 240) {
           score += 8;
           evidence++;
-          reasons.add('فاصله نسبتاً طولانی از وعده ثبت‌شده');
+          reasons.add('فاصله نسبتاً طولانی از آخرین وعده ثبت‌شده');
         }
       }
 
       for (final a in activities) {
-        var elapsed = minute - (a.time.hour * 60 + a.time.minute);
-        if (elapsed < 0) elapsed += 1440;
-        if (elapsed <= 240) {
-          score += a.intensity == 'high' ? 14 : a.intensity == 'medium' ? 8 : 3;
-          evidence++;
-          reasons.add('فعالیت بدنی اخیر');
-          break;
-        }
+        final elapsed = start.difference(a.time);
+        if (elapsed.isNegative || elapsed > const Duration(hours: 4)) continue;
+        score += a.intensity == 'high'
+            ? 14
+            : a.intensity == 'medium'
+                ? 8
+                : 3;
+        evidence++;
+        reasons.add('فعالیت بدنی اخیر');
+        break;
       }
 
       if (_sleeping(minute, profile) && profile.nighttimeHypo) {
@@ -117,48 +152,57 @@ class RiskEngine {
       if (profile.usesInsulin || profile.usesGlucoseLoweringMedication) {
         score += 4;
         evidence++;
-        reasons.add('نیاز به پایش دقیق‌تر بر اساس اطلاعات ثبت‌شده');
+        reasons.add('اطلاعات دارویی ثبت‌شده');
       }
 
-      final ordered = [...readings]..sort((a, b) => a.time.compareTo(b.time));
+      final ordered = [...readings]
+        ..sort((a, b) => a.time.compareTo(b.time));
+
       if (ordered.length >= 2) {
         final a = ordered[ordered.length - 2];
         final b = ordered.last;
         final mins = b.time.difference(a.time).inMinutes;
-        if (mins > 0 && mins <= 240) {
-          final slope = (b.mgDl - a.mgDl) / (mins / 60);
+        final trendWeight = _ageWeight(start, b.time);
+
+        if (mins > 0 && mins <= 240 && trendWeight > 0) {
+          final slope = (b.mgDl - a.mgDl) / (mins / 60.0);
           if (slope <= -20) {
-            score += 12;
+            score += (12 * trendWeight).round();
             evidence += 2;
             reasons.add('روند نزولی سریع');
           } else if (slope <= -10) {
-            score += 6;
+            score += (6 * trendWeight).round();
             evidence++;
             reasons.add('روند نزولی');
           }
         }
       }
 
-      if (minute == profile.wakeHour * 60 + profile.wakeMinute &&
-          profile.fastingGlucose != null &&
-          profile.fastingGlucose! < level1) {
-        score += 20;
-        evidence++;
-        reasons.add('قند ناشتا اولیه پایین ثبت شده');
+      final wakeMinute = profile.wakeHour * 60 + profile.wakeMinute;
+      if (minute == wakeMinute && profile.fastingGlucose != null) {
+        if (profile.fastingGlucose! < level1) {
+          score += 20;
+          evidence++;
+          reasons.add('قند ناشتا اولیه پایین ثبت شده');
+        } else if (profile.fastingGlucose! < 80) {
+          score += 8;
+          evidence++;
+        }
       }
 
-      final confidence = evidence == 0
-          ? 0.0
-          : (evidence / (evidence + 5)).clamp(0.0, 0.95).toDouble();
+      final evidenceCoverage = (evidence / 6).clamp(0.0, 0.95).toDouble();
 
-      if (score >= 30) {
+      // A window must have either strong direct evidence or at least two
+      // independent pieces of contextual evidence. This avoids turning one
+      // weak heuristic (such as a meal gap) into a medical-looking alert.
+      if (score >= 55 || (score >= 30 && evidence >= 2)) {
         raw.add(
           RiskWindow(
             start: start,
             end: start.add(const Duration(minutes: 30)),
             score: score.clamp(0, 100).toInt(),
             level: classify(score),
-            confidence: confidence,
+            evidenceCoverage: evidenceCoverage,
             reason: reasons.toSet().take(3).join('، '),
           ),
         );
@@ -166,18 +210,20 @@ class RiskEngine {
     }
 
     if (raw.isEmpty) return const [];
+
     final merged = <RiskWindow>[];
     var current = raw.first;
 
     for (final next in raw.skip(1)) {
       if (next.start.difference(current.end).inMinutes <= 30) {
-        final s = math.max(current.score, next.score);
+        final maxScore = math.max(current.score, next.score);
         current = RiskWindow(
           start: current.start,
           end: next.end,
-          score: s,
-          level: classify(s),
-          confidence: math.max(current.confidence, next.confidence).toDouble(),
+          score: maxScore,
+          level: classify(maxScore),
+          evidenceCoverage:
+              math.max(current.evidenceCoverage, next.evidenceCoverage).toDouble(),
           reason: current.reason + '؛ ' + next.reason,
         );
       } else {
@@ -185,6 +231,7 @@ class RiskEngine {
         current = next;
       }
     }
+
     merged.add(current);
     return merged;
   }

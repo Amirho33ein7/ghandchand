@@ -209,7 +209,7 @@ class RiskWindow {
   final DateTime end;
   final int score;
   final RiskLevel level;
-  final double confidence;
+  final double evidenceCoverage;
   final String reason;
 
   const RiskWindow({
@@ -217,7 +217,7 @@ class RiskWindow {
     required this.end,
     required this.score,
     required this.level,
-    required this.confidence,
+    required this.evidenceCoverage,
     required this.reason,
   });
 }
