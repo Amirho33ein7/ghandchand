@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0
+- Added a complete editable profile/settings page for all onboarding inputs.
+- Meal reminders now repeat daily until the user changes the profile; the app no longer relies on a seven-day reminder horizon.
+- Added a scheduled notification test from Settings.
+- Centralized 2026 medical reference thresholds and sources.
+- Rebuilt the meal schedule immediately after profile edits and rescheduled notifications.
+
+
 ## 1.1.0
 - Added a personalized daily meal-time algorithm using wake/sleep schedule, selected meal count, glucose inputs, and hypoglycemia-risk signals.
 - Added scheduled meal notifications for the calculated meal times.
