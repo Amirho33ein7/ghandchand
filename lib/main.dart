@@ -842,11 +842,26 @@ class HomePage extends StatelessWidget {
             subtitle: const Text('قند ناشتا، غیرناشتا، خواب، بیداری و تعداد وعده‌ها'),
             onTap: editProfile,
           ),
-          ListTile(
-            leading: const Icon(Icons.notifications_active_outlined),
-            title: const Text('تست اعلان'),
-            subtitle: const Text('اعلان زمان‌بندی‌شده برای حدود ۱۰ ثانیه بعد'),
-            onTap: testNotification,
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.notifications_active_outlined),
+                    title: Text('تست اعلان'),
+                    subtitle: Text('با زدن این گزینه یک اعلان تستی فوری روی گوشی نمایش داده می‌شود.'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: testNotification,
+                    icon: const Icon(Icons.notifications_active),
+                    label: const Text('تست اعلان'),
+                  ),
+                ],
+              ),
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.alarm),
