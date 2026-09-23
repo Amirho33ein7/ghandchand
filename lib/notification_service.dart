@@ -6,6 +6,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'models.dart';
 import 'navigation.dart';
 import 'meal_scheduler.dart';
+import 'notification_planner.dart';
 import 'risk_engine.dart';
 
 class NotificationService {
@@ -193,21 +194,11 @@ class NotificationService {
     );
   }
 
-  int recurringMealNotificationId(int index) => 210000 + index;
 
-  DateTime _nextMealOccurrence(DateTime now, MealPlanEntry entry) {
-    var candidate = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      entry.time.hour,
-      entry.time.minute,
-    );
-    if (!candidate.isAfter(now)) {
-      candidate = candidate.add(const Duration(days: 1));
-    }
-    return candidate;
-  }
+  int recurringMealNotificationId(int index) => NotificationPlanner.mealId(index);
+
+  DateTime _nextMealOccurrence(DateTime now, MealPlanEntry entry) =>
+      NotificationPlanner.nextDailyOccurrence(now, entry);
 
   Future<void> scheduleRecurringMeal(
     MealPlanEntry entry, {
