@@ -1,12 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lowguard/models.dart';
-import 'package:lowguard/risk_engine.dart';
+import 'package:lowguard.risk_engine.dart';
 
 void main() {
-  UserProfile baseProfile({
-    bool history = false,
-    bool night = false,
-  }) =>
+  UserProfile baseProfile({bool history = false, bool night = false}) =>
       UserProfile(
         name: 'Test',
         sleepHour: 23,
@@ -17,14 +14,14 @@ void main() {
         nighttimeHypo: night,
       );
 
-  test('medical thresholds are classified without calling 70-180 a universal target', () {
+  test('medical thresholds', () {
     expect(RiskEngine.glucoseBand(100), 'بالاتر از آستانه افت قند');
     expect(RiskEngine.glucoseBand(69), 'افت قند سطح ۱');
     expect(RiskEngine.glucoseBand(54), 'افت قند سطح ۱');
     expect(RiskEngine.glucoseBand(53.9), 'افت قند سطح ۲');
   });
 
-  test('repeated recent lows create a window around the observed time', () {
+  test('repeated historical lows create a risk window', () {
     final windows = RiskEngine.calculateDay(
       day: DateTime(2026, 9, 23),
       profile: baseProfile(history: true, night: true),
@@ -49,7 +46,7 @@ void main() {
     expect(windows.any((w) => w.start.hour == 3 || w.end.hour == 3), isTrue);
   });
 
-  test('a stale low older than 30 days is ignored', () {
+  test('stale low older than 30 days is ignored', () {
     final windows = RiskEngine.calculateDay(
       day: DateTime(2026, 9, 23),
       profile: baseProfile(),
@@ -87,13 +84,13 @@ void main() {
     expect(windows, isEmpty);
   });
 
-  test('long meal gap alone is not enough to create a medical-looking alert', () {
+  test('long meal gap alone is not enough for an alert', () {
     final windows = RiskEngine.calculateDay(
       day: DateTime(2026, 9, 23),
       profile: baseProfile(),
       readings: const [],
       meals: [
-        MealEntry(time: DateTime(2026, 9, 22, 8), kind: 'صبحانه'),
+        MealEntry(time: DateTime(2026, 9, 23, 8), kind: 'صبحانه'),
       ],
       activities: const [],
       events: const [],
@@ -102,7 +99,7 @@ void main() {
     expect(windows, isEmpty);
   });
 
-  test('activity plus long meal gap can create a check window', () {
+  test('activity and history can create a check window', () {
     final windows = RiskEngine.calculateDay(
       day: DateTime(2026, 9, 23),
       profile: baseProfile(history: true),
@@ -123,8 +120,8 @@ void main() {
     expect(windows, isNotEmpty);
   });
 
-  test('level 3 event can exist without a numeric glucose value', () {
-    const event = HypoglycemiaEvent(
+  test('level 3 event can exist without numeric glucose', () {
+    final event = HypoglycemiaEvent(
       time: DateTime(2026, 9, 23, 3),
       symptoms: 'نیاز به کمک',
     );

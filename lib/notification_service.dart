@@ -19,15 +19,20 @@ class NotificationService {
     if (_ready) return;
     tz.initializeTimeZones();
     final local = await FlutterTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(local.name));
+    tz.setLocalLocation(tz.getLocation(local.identifier));
 
     await plugin.initialize(
-      const InitializationSettings(
+      settings: const InitializationSettings(
         android: AndroidInitializationSettings('@drawable/app_icon'),
       ),
       onDidReceiveNotificationResponse: (response) =>
           handleNotificationPayload(response.payload),
     );
+
+    final launch = await plugin.getNotificationAppLaunchDetails();
+    if (launch?.didNotificationLaunchApp ?? false) {
+      handleNotificationPayload(launch?.notificationResponse?.payload);
+    }
 
     final android = plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();

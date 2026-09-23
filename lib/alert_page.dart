@@ -10,16 +10,18 @@ class SafetyAlertPage extends StatelessWidget {
     required this.onRegisterGlucose,
   });
 
-  bool get measuredLow => payload.startsWith('measured_low:');
+  double? get measuredValue {
+    const prefix = 'measured_low:';
+    if (!payload.startsWith(prefix)) return null;
+    return double.tryParse(payload.substring(prefix.length));
+  }
+
+  bool get measuredLow => measuredValue != null;
+  bool get severeMeasuredLow =>
+      measuredValue != null && measuredValue! < 54;
 
   @override
   Widget build(BuildContext context) {
-    final severe = payload.startsWith('measured_low:54') ||
-        payload.startsWith('measured_low:53') ||
-        payload.startsWith('measured_low:52') ||
-        payload.startsWith('measured_low:51') ||
-        payload.startsWith('measured_low:50');
-
     return Scaffold(
       appBar: AppBar(title: const Text('هشدار قند خون')),
       body: SafeArea(
@@ -36,7 +38,7 @@ class SafetyAlertPage extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               measuredLow
-                  ? (severe
+                  ? (severeMeasuredLow
                       ? 'قند خون بسیار پایین ثبت شده است'
                       : 'قند خون پایین ثبت شده است')
                   : 'زمان بررسی قند خون',
@@ -46,9 +48,9 @@ class SafetyAlertPage extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               measuredLow
-                  ? (severe
-                      ? 'یک اندازه‌گیری بسیار پایین ثبت شده است. طبق برنامه درمانی خود اقدام کنید. اگر فرد هوشیار نیست یا نمی‌تواند به‌صورت ایمن چیزی مصرف کند، چیزی از راه دهان ندهید و از کمک فوری استفاده کنید.'
-                      : 'یک اندازه‌گیری پایین ثبت شده است. طبق برنامه درمانی خود اقدام کنید و طبق دستور پزشک خود قند را دوباره بررسی کنید.')
+                  ? (severeMeasuredLow
+                      ? 'یک اندازه‌گیری کمتر از 54 mg/dL ثبت شده است. طبق برنامه درمانی خود اقدام کنید. اگر فرد هوشیار نیست یا نمی‌تواند به‌صورت ایمن چیزی مصرف کند، چیزی از راه دهان ندهید و از کمک فوری استفاده کنید.'
+                      : 'یک اندازه‌گیری کمتر از 70 mg/dL ثبت شده است. طبق برنامه درمانی خود اقدام کنید و طبق دستور پزشک خود قند را دوباره بررسی کنید.')
                   : 'این هشدار بر اساس داده‌های ثبت‌شده و موتور ریسک شخصی برنامه ایجاد شده است. در صورت امکان قند خون خود را بررسی کنید.',
               textAlign: TextAlign.center,
             ),
