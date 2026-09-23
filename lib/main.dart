@@ -59,21 +59,21 @@ class _RootPageState extends State<RootPage> {
   @override
   void initState() {
     super.initState();
-    notificationPayload.addListener(_handleNotificationPayload);
+    pendingNotificationPayload.addListener(_handleNotificationPayload);
     load();
     WidgetsBinding.instance.addPostFrameCallback((_) => _handleNotificationPayload());
   }
 
   @override
   void dispose() {
-    notificationPayload.removeListener(_handleNotificationPayload);
+    pendingNotificationPayload.removeListener(_handleNotificationPayload);
     super.dispose();
   }
 
   void _handleNotificationPayload() {
-    final payload = notificationPayload.value;
+    final payload = pendingNotificationPayload.value;
     if (!mounted || payload == null || payload.isEmpty) return;
-    notificationPayload.value = null;
+    pendingNotificationPayload.value = null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       Navigator.of(context).push(
@@ -108,7 +108,7 @@ class _RootPageState extends State<RootPage> {
     }
   }
 
-  void recalc() {
+  Future<void> recalcAndSchedule() async {
     if (profile == null) return;
     final result = RiskEngine.calculateDay(
       day: DateTime.now(),
@@ -118,7 +118,14 @@ class _RootPageState extends State<RootPage> {
       activities: activities,
       events: events,
     );
-    if (mounted) setState(() => windows = result);
+    if (mounted) {
+      setState(() => windows = result);
+    }
+    if (result.isEmpty) {
+      await NotificationService.instance.clearRiskWindowNotifications();
+    } else {
+      await NotificationService.instance.scheduleToday(result);
+    }
   }
 
   Future<void> complete(UserProfile p) async {
@@ -579,7 +586,7 @@ class HomePage extends StatelessWidget {
                                 ' • امتیاز ' +
                                 w.score.toString() +
                                 ' • پوشش شواهد ' +
-                                (w.confidence * 100).round().toString() +
+                                (w.evidenceCoverage * 100).round().toString() +
                                 '%',
                           ),
                           onTap: () => showDialog(

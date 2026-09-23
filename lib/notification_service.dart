@@ -112,7 +112,7 @@ class NotificationService {
   Future<void> clearRiskWindowNotifications() async {
     await init();
     for (var i = 0; i < 48; i++) {
-      await plugin.cancel(100000 + i);
+      await plugin.cancel(id: 100000 + i);
     }
   }
 
