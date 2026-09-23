@@ -9,6 +9,7 @@ import 'navigation.dart';
 import 'database.dart';
 import 'models.dart';
 import 'meal_scheduler.dart';
+import 'profile_edit_page.dart';
 import 'notification_service.dart';
 import 'risk_engine.dart';
 
@@ -135,7 +136,7 @@ class _RootPageState extends State<RootPage> {
       profile: profile!,
       readings: readings,
       events: events,
-      days: 3,
+      days: 7,
     );
 
     if (mounted) {
@@ -156,6 +157,18 @@ class _RootPageState extends State<RootPage> {
   Future<void> complete(UserProfile p) async {
     await DatabaseService.instance.saveProfile(p);
     await load();
+  }
+
+  Future<void> editProfile() async {
+    if (profile == null || !mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ProfileEditPage(
+          profile: profile!,
+          onSave: complete,
+        ),
+      ),
+    );
   }
 
   Future<void> addReading() async {
@@ -256,6 +269,7 @@ class _RootPageState extends State<RootPage> {
       scheduleToday: scheduleToday,
       exact: exact,
       exportData: exportData,
+      editProfile: editProfile,
     );
   }
 }
@@ -521,6 +535,7 @@ class HomePage extends StatelessWidget {
   final Future<void> Function() scheduleToday;
   final Future<void> Function() exact;
   final Future<void> Function() exportData;
+  final Future<void> Function() editProfile;
 
   const HomePage({
     super.key,
@@ -536,6 +551,7 @@ class HomePage extends StatelessWidget {
     required this.scheduleToday,
     required this.exact,
     required this.exportData,
+    required this.editProfile,
   });
 
   @override
@@ -812,6 +828,12 @@ class HomePage extends StatelessWidget {
                 },
               );
             },
+          ),
+          ListTile(
+            leading: const Icon(Icons.edit_outlined),
+            title: const Text('ویرایش اطلاعات پایه و آزمایش جدید'),
+            subtitle: const Text('قند ناشتا، غیرناشتا، خواب، بیداری و تعداد وعده‌ها'),
+            onTap: editProfile,
           ),
           ListTile(
             leading: const Icon(Icons.alarm),
