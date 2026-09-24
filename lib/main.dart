@@ -845,9 +845,7 @@ class HomePage extends StatelessWidget {
                   if (!(granted ?? false)) {
                     await NotificationService.instance.openNotificationSettings();
                   }
-                  if (mounted) {
-                    unawaited(recalcAndSchedule());
-                  }
+                  await scheduleToday();
                 },
               );
             },
