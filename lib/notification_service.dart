@@ -182,7 +182,7 @@ class NotificationService {
   int recurringMealNotificationId(int index) =>
       NotificationPlanner.mealId(index);
 
-  TZDateTime _nextMealOccurrence(MealPlanEntry entry) {
+  tz.TZDateTime _nextMealOccurrence(MealPlanEntry entry) {
     final now = tz.TZDateTime.now(tz.local);
     final candidate = tz.TZDateTime(
       tz.local,
