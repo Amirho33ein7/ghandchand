@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
@@ -50,7 +51,7 @@ class RootPage extends StatefulWidget {
   State<RootPage> createState() => _RootPageState();
 }
 
-class _RootPageState extends State<RootPage> {
+class _RootPageState extends State<RootPage> with WidgetsBindingObserver {
   UserProfile? profile;
   List<GlucoseReading> readings = [];
   List<MealEntry> meals = [];
@@ -64,6 +65,7 @@ class _RootPageState extends State<RootPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     pendingNotificationPayload.addListener(_handleNotificationPayload);
     load();
     WidgetsBinding.instance.addPostFrameCallback((_) => _handleNotificationPayload());
@@ -71,8 +73,16 @@ class _RootPageState extends State<RootPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     pendingNotificationPayload.removeListener(_handleNotificationPayload);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && profile != null) {
+      unawaited(recalcAndSchedule());
+    }
   }
 
   void _handleNotificationPayload() {
@@ -142,11 +152,10 @@ class _RootPageState extends State<RootPage> {
       });
     }
 
-    await NotificationService.instance.clearRiskWindowNotifications();
-    if (result.isNotEmpty) {
-      await NotificationService.instance.scheduleToday(result);
-    }
-    await NotificationService.instance.scheduleMealPlan(mealEntries);
+    await NotificationService.instance.rescheduleDayPlan(
+      windows: result,
+      meals: mealEntries,
+    );
   }
 
   Future<void> complete(UserProfile p) async {
@@ -168,7 +177,7 @@ class _RootPageState extends State<RootPage> {
 
   Future<void> testNotification() async {
     await NotificationService.instance.scheduleTestNotification();
-    snack('یک اعلان تستی برای حدود ۱۰ ثانیه بعد زمان‌بندی شد.');
+    snack('اعلان تستی نمایش داده شد.');
   }
 
   Future<void> addReading() async {
@@ -222,6 +231,9 @@ class _RootPageState extends State<RootPage> {
 
   Future<void> exact() async {
     final ok = await NotificationService.instance.exactPermission();
+    if (profile != null) {
+      unawaited(recalcAndSchedule());
+    }
     snack(
       ok
           ? 'مجوز زمان‌بندی دقیق فعال شد.'
@@ -828,9 +840,13 @@ class HomePage extends StatelessWidget {
                       : 'اجازه اعلان‌ها خاموش است؛ برای دریافت هشدار فعالش کنید.',
                 ),
                 onTap: () async {
-                  final granted = await NotificationService.instance.requestNotificationPermission();
+                  final granted =
+                      await NotificationService.instance.requestNotificationPermission();
                   if (!(granted ?? false)) {
                     await NotificationService.instance.openNotificationSettings();
+                  }
+                  if (mounted) {
+                    unawaited(recalcAndSchedule());
                   }
                 },
               );
