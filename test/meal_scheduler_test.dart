@@ -86,7 +86,10 @@ void main() {
     expect(early.entries.first.time, isNot(equals(edited.entries.first.time)));
     expect(early.entries.last.time, isNot(equals(edited.entries.last.time)));
     expect(edited.entries.first.time, DateTime(2026, 9, 24, 9, 30));
-    expect(edited.entries.last.time, isBefore(DateTime(2026, 9, 25, 1, 0)));
+    expect(
+      edited.entries.last.time.isBefore(DateTime(2026, 9, 25, 1, 0)),
+      isTrue,
+    );
   });
 
 }
