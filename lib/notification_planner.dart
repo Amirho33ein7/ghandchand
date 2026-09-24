@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 class NotificationPlanner {
   static const firstMealId = 210000;
   static const maxMealSlots = 6;
@@ -31,14 +29,6 @@ class NotificationPlanner {
     }
 
     return candidate;
-  }
-
-  static String debugPlan(DateTime now, List<DateTime> mealTimes) {
-    final values = mealTimes
-        .take(maxMealSlots)
-        .map((meal) => nextDailyOccurrence(now, meal).toIso8601String())
-        .join(',');
-    return values;
   }
 
   static bool isValidMealCount(int count) => count >= 0 && count <= maxMealSlots;
