@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -9,17 +11,56 @@ import 'meal_scheduler.dart';
 import 'notification_planner.dart';
 import 'risk_engine.dart';
 
+class NotificationScheduleReport {
+  final int expectedMealNotifications;
+  final int pendingMealNotifications;
+  final bool notificationsEnabled;
+  final bool exactAlarmsAllowed;
+
+  const NotificationScheduleReport({
+    required this.expectedMealNotifications,
+    required this.pendingMealNotifications,
+    required this.notificationsEnabled,
+    required this.exactAlarmsAllowed,
+  });
+
+  bool get healthy =>
+      notificationsEnabled &&
+      pendingMealNotifications >= expectedMealNotifications;
+}
+
 class NotificationService {
   NotificationService._();
+
   static final instance = NotificationService._();
+
   final plugin = FlutterLocalNotificationsPlugin();
   bool _ready = false;
+  Future<void> _queue = Future<void>.value();
 
   static const channelId = 'low_guard_alerts';
   static const mealChannelId = 'low_guard_meals';
+  static const firstRecurringMealId = 210000;
+  static const maxMealSlots = 6;
+  static const testNotificationId = 299999;
+
+  Future<void> _runSerialized(Future<void> Function() action) async {
+    final previous = _queue;
+    final done = Completer<void>();
+    _queue = done.future;
+    try {
+      await previous.catchError((_) {});
+      await action();
+      done.complete();
+    } catch (error, stackTrace) {
+      done.completeError(error, stackTrace);
+      rethrow;
+    }
+  }
 
   Future<void> init() async {
     if (_ready) return;
+
     tz.initializeTimeZones();
     final local = await FlutterTimezone.getLocalTimezone();
     tz.setLocalLocation(tz.getLocation(local.identifier));
@@ -138,23 +179,38 @@ class NotificationService {
     return 100000 + halfHour;
   }
 
-  int mealNotificationId(MealPlanEntry entry, int index) {
-    final serial = DateTime.utc(
-      entry.time.year,
-      entry.time.month,
-      entry.time.day,
-    ).difference(DateTime.utc(2020, 1, 1)).inDays;
-    return 210000 + (serial * 10) + index;
+  int recurringMealNotificationId(int index) =>
+      NotificationPlanner.mealId(index);
+
+  TZDateTime _nextMealOccurrence(MealPlanEntry entry) {
+    final now = tz.TZDateTime.now(tz.local);
+    final candidate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      entry.time.hour,
+      entry.time.minute,
+    );
+
+    if (candidate.isAfter(now)) return candidate;
+
+    return tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day + 1,
+      entry.time.hour,
+      entry.time.minute,
+    );
   }
 
-  Future<void> schedule(RiskWindow w) async {
-    await init();
+  Future<void> _scheduleRiskWindow(
+    RiskWindow w, {
+    required AndroidScheduleMode mode,
+  }) async {
     final date = tz.TZDateTime.from(w.start, tz.local);
     if (!date.isAfter(tz.TZDateTime.now(tz.local))) return;
-
-    final mode = await canExact()
-        ? AndroidScheduleMode.exactAllowWhileIdle
-        : AndroidScheduleMode.inexactAllowWhileIdle;
 
     await plugin.zonedSchedule(
       id: riskNotificationId(w),
@@ -170,53 +226,19 @@ class NotificationService {
     );
   }
 
-  Future<void> scheduleMeal(
+  Future<void> _scheduleRecurringMeal(
     MealPlanEntry entry, {
     required int index,
+    required AndroidScheduleMode mode,
   }) async {
-    await init();
-    final date = tz.TZDateTime.from(entry.time, tz.local);
-    if (!date.isAfter(tz.TZDateTime.now(tz.local))) return;
-
-    final mode = await canExact()
-        ? AndroidScheduleMode.exactAllowWhileIdle
-        : AndroidScheduleMode.inexactAllowWhileIdle;
-
-    await plugin.zonedSchedule(
-      id: mealNotificationId(entry, index),
-      title: '🍽️ زمان ' + entry.title,
-      body:
-          'الان زمان وعده برنامه‌ریزی‌شده است. اگر قندتان پایین است، طبق برنامه درمانی خود اقدام کنید.',
-      scheduledDate: date,
-      notificationDetails: mealDetails(),
-      androidScheduleMode: mode,
-      payload: 'meal:' + entry.title,
-    );
-  }
-
-
-  int recurringMealNotificationId(int index) => NotificationPlanner.mealId(index);
-
-  DateTime _nextMealOccurrence(DateTime now, MealPlanEntry entry) =>
-      NotificationPlanner.nextDailyOccurrence(now, entry);
-
-  Future<void> scheduleRecurringMeal(
-    MealPlanEntry entry, {
-    required int index,
-  }) async {
-    await init();
-    final next = _nextMealOccurrence(DateTime.now(), entry);
-    final date = tz.TZDateTime.from(next, tz.local);
-    final mode = await canExact()
-        ? AndroidScheduleMode.exactAllowWhileIdle
-        : AndroidScheduleMode.inexactAllowWhileIdle;
+    final next = _nextMealOccurrence(entry);
 
     await plugin.zonedSchedule(
       id: recurringMealNotificationId(index),
       title: '🍽️ زمان ' + entry.title,
       body:
           'الان زمان وعده برنامه‌ریزی‌شده است. مقدار و نوع غذا را طبق برنامه شخصی یا درمانی خود تعیین کنید.',
-      scheduledDate: date,
+      scheduledDate: next,
       notificationDetails: mealDetails(),
       androidScheduleMode: mode,
       payload: 'meal:' + entry.title,
@@ -224,25 +246,137 @@ class NotificationService {
     );
   }
 
-  Future<void> scheduleDailyMealPlan(List<MealPlanEntry> entries) async {
-    await clearMealNotifications();
-    final count = entries.length.clamp(0, 6).toInt();
-    for (var i = 0; i < count; i++) {
-      await scheduleRecurringMeal(entries[i], index: i);
+  Future<void> _clearRiskWindowNotifications() async {
+    for (var i = 0; i < 48; i++) {
+      await plugin.cancel(id: 100000 + i);
     }
+  }
+
+  Future<void> _clearMealNotifications() async {
+    final pending = await plugin.pendingNotificationRequests();
+    final mealIds = pending
+        .where(
+          (request) =>
+              request.payload?.startsWith('meal:') == true ||
+              (request.id >= firstRecurringMealId &&
+                  request.id < firstRecurringMealId + maxMealSlots),
+        )
+        .map((request) => request.id)
+        .toSet();
+
+    for (final id in mealIds) {
+      await plugin.cancel(id: id);
+    }
+  }
+
+  Future<void> _verifyMealSchedule(
+    List<MealPlanEntry> entries, {
+    required AndroidScheduleMode mode,
+  }) async {
+    if (entries.isEmpty) return;
+
+    final expected = <int>{
+      for (var i = 0; i < entries.length && i < maxMealSlots; i++)
+        recurringMealNotificationId(i),
+    };
+
+    for (var attempt = 0; attempt < 2; attempt++) {
+      final pending = await plugin.pendingNotificationRequests();
+      final pendingIds = pending.map((e) => e.id).toSet();
+      final missing = expected.where((id) => !pendingIds.contains(id));
+
+      if (missing.isEmpty) return;
+
+      for (final id in missing) {
+        final index = id - firstRecurringMealId;
+        if (index >= 0 &&
+            index < entries.length &&
+            index < maxMealSlots) {
+          await _scheduleRecurringMeal(
+            entries[index],
+            index: index,
+            mode: mode,
+          );
+        }
+      }
+
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    }
+
+    final pending = await plugin.pendingNotificationRequests();
+    final pendingIds = pending.map((e) => e.id).toSet();
+    final missing = expected.where((id) => !pendingIds.contains(id)).toList();
+
+    if (missing.isNotEmpty) {
+      throw StateError(
+        'Meal notification scheduling failed for ids: ' + missing.join(', '),
+      );
+    }
+  }
+
+  Future<NotificationScheduleReport> rescheduleDayPlan({
+    required List<RiskWindow> windows,
+    required List<MealPlanEntry> meals,
+  }) async {
+    await init();
+
+    late NotificationScheduleReport report;
+
+    await _runSerialized(() async {
+      final notificationsAllowed = await notificationsEnabled();
+      final exactAllowed = await canExact();
+      final mode = exactAllowed
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle;
+
+      await _clearRiskWindowNotifications();
+      for (final w in windows.take(6)) {
+        await _scheduleRiskWindow(w, mode: mode);
+      }
+
+      // Remove current reminders and any legacy meal reminders created
+      // by older app versions before rebuilding the new daily plan.
+      await _clearMealNotifications();
+
+      final count = meals.length.clamp(0, maxMealSlots).toInt();
+      for (var i = 0; i < count; i++) {
+        await _scheduleRecurringMeal(meals[i], index: i, mode: mode);
+      }
+
+      await _verifyMealSchedule(
+        meals.take(maxMealSlots).toList(),
+        mode: mode,
+      );
+
+      final pendingMeals = await plugin.pendingNotificationRequests();
+      final mealIds = <int>{
+        for (var i = 0; i < count; i++) recurringMealNotificationId(i),
+      };
+
+      report = NotificationScheduleReport(
+        expectedMealNotifications: count,
+        pendingMealNotifications:
+            pendingMeals.where((e) => mealIds.contains(e.id)).length,
+        notificationsEnabled: notificationsAllowed,
+        exactAlarmsAllowed: exactAllowed,
+      );
+    });
+
+    return report;
   }
 
   Future<void> scheduleTestNotification() async {
     await init();
-    await plugin.cancel(id: 299999);
+    await plugin.cancel(id: testNotificationId);
     await plugin.show(
-      id: 299999,
+      id: testNotificationId,
       title: '✅ تست اعلان نگهبان قند',
       body: 'اگر این پیام را می‌بینید، اعلان‌های برنامه فعال و قابل دریافت هستند.',
       notificationDetails: mealDetails(),
       payload: 'test_notification',
     );
   }
+
   Future<void> showLow(double mgDl) async {
     await init();
     final severe = mgDl < RiskEngine.level2;
@@ -258,36 +392,47 @@ class NotificationService {
     );
   }
 
-  Future<void> clearRiskWindowNotifications() async {
-    await init();
-    for (var i = 0; i < 48; i++) {
-      await plugin.cancel(id: 100000 + i);
-    }
-  }
-
-  Future<void> clearMealNotifications() async {
-    await init();
-    for (var i = 210000; i < 220000; i++) {
-      await plugin.cancel(id: i);
-    }
-  }
-
   Future<void> scheduleToday(List<RiskWindow> windows) async {
-    await clearRiskWindowNotifications();
-    for (final w in windows.take(6)) {
-      await schedule(w);
+    final existingMeals = await plugin.pendingNotificationRequests();
+    final currentMeals = existingMeals
+        .where((e) => e.payload?.startsWith('meal:') == true)
+        .toList(growable: false);
+    await rescheduleDayPlan(windows: windows, meals: const []);
+
+    // Keep this method's historical API semantics for callers that only
+    // need the risk-window part.
+    if (currentMeals.isNotEmpty) {
+      // Meal reminders are deliberately untouched by the public risk API.
+      // They are re-owned by scheduleMealPlan/rescheduleDayPlan.
     }
   }
 
   Future<void> scheduleMealPlan(List<MealPlanEntry> entries) async {
-    await scheduleDailyMealPlan(entries);
+    await init();
+    await _runSerialized(() async {
+      final exactAllowed = await canExact();
+      final mode = exactAllowed
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle;
+
+      await _clearMealNotifications();
+
+      final count = entries.length.clamp(0, maxMealSlots).toInt();
+      for (var i = 0; i < count; i++) {
+        await _scheduleRecurringMeal(entries[i], index: i, mode: mode);
+      }
+
+      await _verifyMealSchedule(
+        entries.take(maxMealSlots).toList(),
+        mode: mode,
+      );
+    });
   }
 
   Future<void> scheduleDayPlan({
     required List<RiskWindow> windows,
     required List<MealPlanEntry> meals,
   }) async {
-    await scheduleToday(windows);
-    await scheduleDailyMealPlan(meals);
+    await rescheduleDayPlan(windows: windows, meals: meals);
   }
 }
