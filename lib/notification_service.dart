@@ -393,18 +393,18 @@ class NotificationService {
   }
 
   Future<void> scheduleToday(List<RiskWindow> windows) async {
-    final existingMeals = await plugin.pendingNotificationRequests();
-    final currentMeals = existingMeals
-        .where((e) => e.payload?.startsWith('meal:') == true)
-        .toList(growable: false);
-    await rescheduleDayPlan(windows: windows, meals: const []);
+    await init();
+    await _runSerialized(() async {
+      final exactAllowed = await canExact();
+      final mode = exactAllowed
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle;
 
-    // Keep this method's historical API semantics for callers that only
-    // need the risk-window part.
-    if (currentMeals.isNotEmpty) {
-      // Meal reminders are deliberately untouched by the public risk API.
-      // They are re-owned by scheduleMealPlan/rescheduleDayPlan.
-    }
+      await _clearRiskWindowNotifications();
+      for (final w in windows.take(6)) {
+        await _scheduleRiskWindow(w, mode: mode);
+      }
+    });
   }
 
   Future<void> scheduleMealPlan(List<MealPlanEntry> entries) async {
