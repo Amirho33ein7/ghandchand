@@ -19,7 +19,7 @@ void main() {
     );
     final next = NotificationPlanner.nextDailyOccurrence(
       DateTime(2026, 9, 23, 10),
-      entry,
+      entry.time,
     );
     expect(next, DateTime(2026, 9, 24, 9, 30));
   });
